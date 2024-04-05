@@ -21,7 +21,7 @@ def encode(data, dictionary):
                 result = result + bitarray(b - tamanho)
         
             result = result + dictionary[buffer]
-            print(result, "int: ", ba2int(dictionary[buffer]), "b:", b, "simbolo: ", buffer, "\n")
+            #print(result, "int: ", ba2int(dictionary[buffer]), "b:", b, "simbolo: ", buffer, "\n")
             dictionary[new_buffer] = frozenbitarray(int2ba(len(dictionary)).to01())
             #print("adicionou ao dicionario: ", new_buffer, dictionary[new_buffer])
             newTamanho = len(dictionary[new_buffer])
@@ -35,7 +35,7 @@ def encode(data, dictionary):
         if(tamanho < b):
             result = result + bitarray(b - tamanho)
         result = result + dictionary[buffer]
-        print(result, "int: ", ba2int(dictionary[buffer]), "b:", b, "simbolo: ", buffer, "\n")
+        #print(result, "int: ", ba2int(dictionary[buffer]), "b:", b, "simbolo: ", buffer, "\n")
     return result
 
 def lzw_compress(data, static_dictionary=False):
@@ -46,33 +46,32 @@ def lzw_compress(data, static_dictionary=False):
     return compressed_data
 
 def initialize_dictionary_decode():
-    return {frozenbitarray(buffer=bytes([i])): bytes([i]) for i in range(256)}
+    return {frozenbitarray(int2ba(i).to01()): bytes([i]) for i in range(256)}
 
 def decode(data, dictionary):
     b = 8
     buffer = b'' # 
     result = b''
     while len(data) > 0: #
-        symbol = data[:b] #2
+        symbol = strip(data[:b], mode="left") #2
+        if(len(symbol) == 0): symbol = bitarray('0')
+        #print(data[:b], symbol, b)
         data = data[b:] #eof
-        symbol = frozenbitarray(symbol)
+        
 
-        if b > 8 and symbol[0]==0:
+        """  if b > 8 and symbol[0]==0:
             print('PASSOU AQUI')
-            symbol = symbol[(b-8):] #Pegar os 8 ultimos bits
+            symbol = symbol[(b-8):] #Pegar os 8 ultimos bits """
 
         if buffer:
-            if symbol not in dictionary:
-                dictionary[frozenbitarray(int2ba(len(dictionary))).to01()] = buffer + buffer #TO-DO: tem que receber apenar o primeiro simbolo do buffer
-            else:
-                dictionary[frozenbitarray(int2ba(len(dictionary))).to01()] = buffer + dictionary[symbol] #TO-DO: tem que receber apenar o primeiro simbolo
-
-        result = result + dictionary[symbol] #a,a,b,ab,aba, aa
-        print(result, "int: ", dictionary[symbol], "b:", b, "simbolo: ", symbol, "\n")
+            dictionary[frozenbitarray(int2ba(len(dictionary)).to01())] = buffer + bytes([dictionary[frozenbitarray(symbol.to01())][0]]) #TO-DO: tem que receber apenar o primeiro simbolo do buffer
+            
+        result = result + dictionary[frozenbitarray(symbol.to01())] #a,a,b,ab,aba, aa
+        print(result, "int: ", ba2int(symbol), "b:", b, "simbolo: ", dictionary[frozenbitarray(symbol.to01())], "\n")
         if 2 ** b <= len(dictionary):
             b = b + 1 #6
 
-        buffer = dictionary[symbol]  #aa
+        buffer = dictionary[frozenbitarray(symbol.to01())]  #aa
     
     return result
 
