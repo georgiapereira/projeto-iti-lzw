@@ -7,43 +7,52 @@ from bitarray.util import int2ba, ba2int, strip
 def initialize_dictionary_encode():
     return {bytes([i]): frozenbitarray(buffer=bytes([i])) for i in range(256)}
 
-def encode(data, dictionary):
+def encode(data, dictionary, file):
+    bits_to_write = 8
     b = 8
     buffer = b'' # ultima frase encontrada no dicionario
     result = bitarray()
-    for symbol in data: #
-        new_buffer = buffer + bytes([symbol]) 
-        if new_buffer in dictionary: 
-            buffer = new_buffer 
-        else: # quebrou a coincidência 
+    with open(file, 'wb') as write_file:
+        for symbol in data: #
+            new_buffer = buffer + bytes([symbol]) 
+            if new_buffer in dictionary: 
+                buffer = new_buffer 
+            else: # quebrou a coincidência 
+                tamanho = len(dictionary[buffer])
+                if(tamanho < b):
+                    result = result + bitarray(b - tamanho)
+
+                result = result + dictionary[buffer]
+                
+                print(result, "int: ", ba2int(dictionary[buffer]), "b:", b, "simbolo: ", buffer, "\n")
+                dictionary[new_buffer] = frozenbitarray(int2ba(len(dictionary)))
+                #print("adicionou ao dicionario: ", new_buffer, dictionary[new_buffer])
+                newTamanho = len(dictionary[new_buffer])
+            
+                if(newTamanho > b):
+                    b = newTamanho
+                buffer = bytes([symbol])
+                
+                if b > bits_to_write:
+                    bits_to_write = bits_to_write + 8
+                if len(result) >= bits_to_write:
+                    write_file.write(result[:bits_to_write])
+                    result = result[bits_to_write:]
+                
+        if buffer:
             tamanho = len(dictionary[buffer])
             if(tamanho < b):
                 result = result + bitarray(b - tamanho)
-        
             result = result + dictionary[buffer]
-            #print(result, "int: ", ba2int(dictionary[buffer]), "b:", b, "simbolo: ", buffer, "\n")
-            dictionary[new_buffer] = frozenbitarray(int2ba(len(dictionary)))
-            #print("adicionou ao dicionario: ", new_buffer, dictionary[new_buffer])
-            newTamanho = len(dictionary[new_buffer])
-        
-            if(newTamanho > b):
-                b = newTamanho
-            buffer = bytes([symbol])
             
-    if buffer:
-        tamanho = len(dictionary[buffer])
-        if(tamanho < b):
-            result = result + bitarray(b - tamanho)
-        result = result + dictionary[buffer]
-        #print(result, "int: ", ba2int(dictionary[buffer]), "b:", b, "simbolo: ", buffer, "\n")
-    return result
+            write_file.write(result)
+            #print(result, "int: ", ba2int(dictionary[buffer]), "b:", b, "simbolo: ", buffer, "\n")
 
-def lzw_compress(data, static_dictionary=False):
+def lzw_compress(data, file, static_dictionary=False):
     dictionary = initialize_dictionary_encode()
     #print("Dicionário inicial:", dictionary)
-    compressed_data = encode(data, dictionary)
+    encode(data, dictionary, file)
     #print(dictionary)
-    return compressed_data
 
 def initialize_dictionary_decode():
     return {frozenbitarray(buffer=bytes([i])): bytes([i]) for i in range(256)}
@@ -59,7 +68,6 @@ def decode(data, dictionary):
         #print(data[:b], symbol, b)
         data = data[b:] #eof
         
-
         if b > 8 and symbol[0]==0:
             print('PASSOU AQUI')
             print(symbol)
@@ -96,10 +104,11 @@ filename = os.path.splitext(os.path.basename(file))[0]
 original_data = fin.read()
 fin.close()
 
-compressed_data = lzw_compress(original_data, static_dictionary=True)
-print("Dados Comprimidos:", compressed_data)
-with open(f"{filename}.bin", 'wb') as output:
-    compressed_data.tofile(output)
+lzw_compress(original_data, filename+".bin", static_dictionary=True, )
+#print("Dados Comprimidos:", compressed_data)
+with open(f"{filename}.bin", 'rb') as output:
+    print(output.read())
+    #compressed_data.tofile(output)
 
 filename = f"{filename}.bin"  # Substitua "seu_arquivo.bin" pelo nome do seu arquivo binário
 
