@@ -22,7 +22,7 @@ def encode(data, dictionary):
         
             result = result + dictionary[buffer]
             #print(result, "int: ", ba2int(dictionary[buffer]), "b:", b, "simbolo: ", buffer, "\n")
-            dictionary[new_buffer] = frozenbitarray(int2ba(len(dictionary)).to01())
+            dictionary[new_buffer] = frozenbitarray(int2ba(len(dictionary)))
             #print("adicionou ao dicionario: ", new_buffer, dictionary[new_buffer])
             newTamanho = len(dictionary[new_buffer])
         
@@ -46,32 +46,40 @@ def lzw_compress(data, static_dictionary=False):
     return compressed_data
 
 def initialize_dictionary_decode():
-    return {frozenbitarray(int2ba(i).to01()): bytes([i]) for i in range(256)}
+    return {frozenbitarray(buffer=bytes([i])): bytes([i]) for i in range(256)}
 
 def decode(data, dictionary):
     b = 8
     buffer = b'' # 
     result = b''
     while len(data) > 0: #
-        symbol = strip(data[:b], mode="left") #2
-        if(len(symbol) == 0): symbol = bitarray('0')
+        #symbol = strip(data[:b], mode="left") #2
+        symbol = data[:b] #2
+        #if(len(symbol) == 0): symbol = bitarray('0')
         #print(data[:b], symbol, b)
         data = data[b:] #eof
         
 
-        """  if b > 8 and symbol[0]==0:
+        if b > 8 and symbol[0]==0:
             print('PASSOU AQUI')
-            symbol = symbol[(b-8):] #Pegar os 8 ultimos bits """
+            print(symbol)
+            if ba2int(symbol) == 0:
+                symbol = bitarray('00000000')
+            else:    
+                symbol = symbol[(b-8):] #Pegar os 8 ultimos bits
 
         if buffer:
-            dictionary[frozenbitarray(int2ba(len(dictionary)).to01())] = buffer + bytes([dictionary[frozenbitarray(symbol.to01())][0]]) #TO-DO: tem que receber apenar o primeiro simbolo do buffer
+            if frozenbitarray(symbol) not in dictionary:
+                dictionary[frozenbitarray(int2ba(len(dictionary)))] = buffer + bytes([buffer[0]]) 
+            else:
+                dictionary[frozenbitarray(int2ba(len(dictionary)))] = buffer + bytes([dictionary[frozenbitarray(symbol)][0]]) 
             
-        result = result + dictionary[frozenbitarray(symbol.to01())] #a,a,b,ab,aba, aa
-        print(result, "int: ", ba2int(symbol), "b:", b, "simbolo: ", dictionary[frozenbitarray(symbol.to01())], "\n")
+        result = result + dictionary[frozenbitarray(symbol)] #a,a,b,ab,aba, aa
+        print(result, "int: ", ba2int(symbol), "b:", b, "simbolo: ", dictionary[frozenbitarray(symbol)], "\n")
         if 2 ** b <= len(dictionary):
             b = b + 1 #6
 
-        buffer = dictionary[frozenbitarray(symbol.to01())]  #aa
+        buffer = dictionary[frozenbitarray(symbol)]  #aa
     
     return result
 
@@ -98,6 +106,7 @@ filename = f"{filename}.bin"  # Substitua "seu_arquivo.bin" pelo nome do seu arq
 with open(filename, 'rb') as file:
     compressed_data = bitarray()
     compressed_data.fromfile(file)
+    print("Dados do arquivo comprimido: ", compressed_data)
 decompressed_data = lzw_decompress(compressed_data)
 print("Dados descomprimidos: ", decompressed_data)
 
