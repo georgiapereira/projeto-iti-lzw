@@ -1,20 +1,46 @@
 import sys, os
+import math
+import time
 
 from bitarray import bitarray, frozenbitarray
 from bitarray.util import int2ba, ba2int, strip
 
+def calc_comprimento_medio(n_bit,n_symbol):
+    return n_bit/n_symbol
+
+def cal_entropia(dict_cont, n_symbol):
+    entropia = 0
+    for key_s in dict_cont:
+        #print("N: ",n_symbol,"key: ", key_s, "dict_cont[key]:", dict_cont[key_s])
+        entropia += (dict_cont[key_s]/n_symbol) * math.log(n_symbol/dict_cont[key_s], 2)
+    return entropia
+    
 
 def initialize_dictionary_encode():
     return {bytes([i]): frozenbitarray(buffer=bytes([i])) for i in range(256)}
 
+#comprimento médio = numero de bits / simbolos codificados
+#entropia = somatorio das informações
+#informação = log 1/p
+#tempo de compressão e descompressão
 def encode(data, dictionary, file, p, static_dictionary):
+    n_symbol = 0
+    n_bits = 0
+    dict_cont_s = {}
     bits_to_write = 64
     b = 8
     buffer = b'' # ultima frase encontrada no dicionario
     result = bitarray()
     with open(file, 'wb') as write_file:
         for symbol in data: #
+            n_symbol += 1
             new_buffer = buffer + bytes([symbol]) 
+            #cont de simbolos
+            if bytes([symbol])  in dict_cont_s:
+                dict_cont_s[bytes([symbol])] += 1
+            else:
+                dict_cont_s[bytes([symbol])] = 1
+
             if new_buffer in dictionary: 
                 buffer = new_buffer 
             else: # quebrou a coincidência 
@@ -23,7 +49,7 @@ def encode(data, dictionary, file, p, static_dictionary):
                     result = result + bitarray(b - tamanho_buffer)
 
                 result = result + dictionary[buffer]
-                
+                #print('Bits por simbolo:', dictionary[buffer])
                 #print(result, "int: ", ba2int(dictionary[buffer]), "b:", b, "simbolo: ", buffer, "\n")
                 tamanho_dict = len(dictionary)
                 if (not static_dictionary) or (tamanho_dict < p):
@@ -39,6 +65,8 @@ def encode(data, dictionary, file, p, static_dictionary):
                 #    bits_to_write = bits_to_write + 8
                 if len(result) >= bits_to_write:
                     times_to_write = int(len(result) / bits_to_write)
+                    #print('Simbolos: ', result[:(bits_to_write * times_to_write)])
+                    n_bits += len(result[:(bits_to_write * times_to_write)])
                     write_file.write(result[:(bits_to_write * times_to_write)])
                     result = result[(bits_to_write * times_to_write):]
                 
@@ -47,10 +75,12 @@ def encode(data, dictionary, file, p, static_dictionary):
             if(tamanho < b):
                 result = result + bitarray(b - tamanho)
             result = result + dictionary[buffer]
-            
+            #print('Simbolos: ', result)
+            n_bits += len(result)
             write_file.write(result)
             #print(result, "int: ", ba2int(dictionary[buffer]), "b:", b, "simbolo: ", buffer, "\n")
-
+        print ("Comprimento médio:", calc_comprimento_medio(n_bits,n_symbol))
+        print ("Entropia: ", cal_entropia(dict_cont_s,n_symbol))
 def lzw_compress(data, file, p, static_dictionary=False):
     dictionary = initialize_dictionary_encode()
     #print("Dicionário inicial:", dictionary)
@@ -90,7 +120,6 @@ def decode(data, dictionary, file, p, static_dictionary):
 
                 if 2 ** b <= len(dictionary) and 2 ** b < p:
                     b = b + 1 #6
-                    print(b)
             
             #print(result, "int: ", ba2int(symbol), "b:", b, "simbolo: ", dictionary[frozenbitarray(symbol)], "\n")
            
@@ -126,7 +155,10 @@ fin.close()
 
 filename = f"compressed_{filename}.bin"  # Substitua "seu_arquivo.bin" pelo nome do seu arquivo binário
 
+inicio = time.time()
 lzw_compress(data=original_data, file=filename, p=p, static_dictionary=True, )
+fim = time.time()
+print("Tempo de Compressão: ", fim - inicio)
 print("Dados Comprimidos")
 with open(filename, 'rb') as output:
     pass
@@ -138,7 +170,10 @@ with open(filename, 'rb') as file:
     compressed_data.fromfile(file)
     #print("Dados do arquivo comprimido: ", compressed_data)
 
+inicio = time.time()
 lzw_decompress(data=compressed_data, file="decompressed_"+original_filename, p=p, static_dictionary=True)
+fim = time.time()
+print("Tempo de Descompressão: ", fim - inicio)
 #print("Dados descomprimidos: ", decompressed_data)
 print("Dados Descomprimidos")
 
