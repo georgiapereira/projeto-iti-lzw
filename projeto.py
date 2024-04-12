@@ -1,6 +1,7 @@
 import sys, os
 import math
 import time
+import matplotlib.pyplot as plt
 
 from bitarray import bitarray, frozenbitarray
 from bitarray.util import int2ba, ba2int, strip
@@ -26,6 +27,10 @@ def initialize_dictionary_encode():
 def encode(data, dictionary, file, p, static_dictionary, rc):
     n_symbol = 0
     n_bits = 0
+    tam_result = 0
+    tam_input = 0
+    graph_tam_symbol_x = []
+    graph_tam_symbol_y = []
     dict_cont_s = {}
     bits_to_write = 64
     b = 8
@@ -52,6 +57,11 @@ def encode(data, dictionary, file, p, static_dictionary, rc):
                     result = result + bitarray(b - tamanho_buffer)
 
                 result = result + dictionary[buffer]
+                tam_result += b
+                tam_input += len(buffer)
+                graph_tam_symbol_x.append(tam_input)
+                graph_tam_symbol_y.append(tam_result / tam_input)
+
                 #print('Bits por simbolo:', dictionary[buffer])
                 #print(result, "int: ", ba2int(dictionary[buffer]), "b:", b, "simbolo: ", buffer, "\n")
                 tamanho_dict = len(dictionary)
@@ -86,12 +96,25 @@ def encode(data, dictionary, file, p, static_dictionary, rc):
             if(tamanho < b):
                 result = result + bitarray(b - tamanho)
             result = result + dictionary[buffer]
+            tam_result += b
+            tam_input += len(buffer)
+            graph_tam_symbol_x.append(tam_input)
+            graph_tam_symbol_y.append(tam_result / tam_input)
             #print('Simbolos: ', result)
             n_bits += len(result)
             write_file.write(result)
             #print(result, "int: ", ba2int(dictionary[buffer]), "b:", b, "simbolo: ", buffer, "\n")
         print ("Comprimento médio:", calc_comprimento_medio(n_bits,n_symbol))
         print ("Entropia: ", cal_entropia(dict_cont_s,n_symbol))
+        # Criando o gráfico
+        plt.plot(graph_tam_symbol_x, graph_tam_symbol_y)
+        plt.xscale('log')
+        # Adicionando rótulos e título
+        plt.xlabel('Eixo X')
+        plt.ylabel('Eixo Y')
+        plt.title('Gráfico de Linha Simples')
+        plt.show()
+
 
 def lzw_compress(data, file, p, static_dictionary=False, rc=False):
     dictionary = initialize_dictionary_encode()
