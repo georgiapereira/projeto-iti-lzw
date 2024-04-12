@@ -23,7 +23,7 @@ def initialize_dictionary_encode():
 #entropia = somatorio das informações
 #informação = log 1/p
 #tempo de compressão e descompressão
-def encode(data, dictionary, file, p, static_dictionary):
+def encode(data, dictionary, file, p, static_dictionary, rc):
     n_symbol = 0
     n_bits = 0
     dict_cont_s = {}
@@ -35,6 +35,7 @@ def encode(data, dictionary, file, p, static_dictionary):
         for symbol in data: #
             n_symbol += 1
             new_buffer = buffer + bytes([symbol]) 
+            
             #cont de simbolos
             if bytes([symbol])  in dict_cont_s:
                 dict_cont_s[bytes([symbol])] += 1
@@ -44,7 +45,9 @@ def encode(data, dictionary, file, p, static_dictionary):
             if new_buffer in dictionary: 
                 buffer = new_buffer 
             else: # quebrou a coincidência 
+                
                 tamanho_buffer = len(dictionary[buffer])
+                
                 if(tamanho_buffer < b):
                     result = result + bitarray(b - tamanho_buffer)
 
@@ -52,15 +55,23 @@ def encode(data, dictionary, file, p, static_dictionary):
                 #print('Bits por simbolo:', dictionary[buffer])
                 #print(result, "int: ", ba2int(dictionary[buffer]), "b:", b, "simbolo: ", buffer, "\n")
                 tamanho_dict = len(dictionary)
-                if (not static_dictionary) or (tamanho_dict < p):
+                if tamanho_dict < p:
                     dictionary[new_buffer] = frozenbitarray(int2ba(tamanho_dict))
-                    
                     newTamanho = len(dictionary[new_buffer])
                     if(newTamanho > b):
                         b = newTamanho
+                elif rc:
+                    print('TO-DO RC')
+                elif not static_dictionary:
+                    b = 9
+                    dictionary = initialize_dictionary_encode()
+                    tamanho_dict = len(dictionary)
+                    dictionary[new_buffer] = frozenbitarray(int2ba(tamanho_dict))
+                    #print('Clear D', new_buffer, bytes([symbol]))
+                    #dictionary[bytes([symbol])] = frozenbitarray(int2ba(tamanho_dict))
 
                 buffer = bytes([symbol])
-                
+                 
                 #if b > bits_to_write:
                 #    bits_to_write = bits_to_write + 8
                 if len(result) >= bits_to_write:
@@ -81,16 +92,17 @@ def encode(data, dictionary, file, p, static_dictionary):
             #print(result, "int: ", ba2int(dictionary[buffer]), "b:", b, "simbolo: ", buffer, "\n")
         print ("Comprimento médio:", calc_comprimento_medio(n_bits,n_symbol))
         print ("Entropia: ", cal_entropia(dict_cont_s,n_symbol))
-def lzw_compress(data, file, p, static_dictionary=False):
+
+def lzw_compress(data, file, p, static_dictionary=False, rc=False):
     dictionary = initialize_dictionary_encode()
     #print("Dicionário inicial:", dictionary)
-    encode(data, dictionary, file, p, static_dictionary)
+    encode(data, dictionary, file, p, static_dictionary, rc)
     #print(dictionary)
 
 def initialize_dictionary_decode():
     return {frozenbitarray(buffer=bytes([i])): bytes([i]) for i in range(256)}
 
-def decode(data, dictionary, file, p, static_dictionary):
+def decode(data, dictionary, file, p, static_dictionary, rc):
     data_len = len(data)
     b = 8
     buffer = b'' # 
@@ -98,6 +110,9 @@ def decode(data, dictionary, file, p, static_dictionary):
     cur_index = 0
     with open(file, 'wb') as write_file:
         while True: #
+            dict_len = len(dictionary)
+            if not static_dictionary and dict_len == p:
+                b = 9
             symbol = strip(data[cur_index:b+cur_index], mode="left") #2
             #symbol = data[:b] #2
             #if(len(symbol) == 0): symbol = bitarray('0')
@@ -111,7 +126,8 @@ def decode(data, dictionary, file, p, static_dictionary):
             frozen_symbol = frozenbitarray(symbol)
 
             dict_len = len(dictionary)
-            if (not static_dictionary) or (dict_len < p):
+
+            if dict_len < p:
                 if buffer:
                     if frozen_symbol not in dictionary:
                         dictionary[frozenbitarray(int2ba(dict_len))] = buffer + bytes([buffer[0]]) 
@@ -120,7 +136,18 @@ def decode(data, dictionary, file, p, static_dictionary):
 
                 if 2 ** b <= len(dictionary) and 2 ** b < p:
                     b = b + 1 #6
-            
+            elif rc:
+                print('TO-DO RC')
+            elif not static_dictionary:
+                dictionary = initialize_dictionary_decode()
+                if buffer:
+                    dict_len = len(dictionary)
+                    if frozen_symbol not in dictionary:
+                        dictionary[frozenbitarray(int2ba(dict_len))] = buffer + bytes([buffer[0]]) 
+                    else:
+                        dictionary[frozenbitarray(int2ba(dict_len))] = buffer + bytes([dictionary[frozen_symbol][0]]) 
+                    
+                #dictionary[frozenbitarray(int2ba(dict_len))] = bytes([symbol_clear]) 
             #print(result, "int: ", ba2int(symbol), "b:", b, "simbolo: ", dictionary[frozenbitarray(symbol)], "\n")
            
             result = result + dictionary[frozen_symbol] #a,a,b,ab,aba, aa
@@ -137,12 +164,11 @@ def decode(data, dictionary, file, p, static_dictionary):
         if result:
             write_file.write(result)
 
-    
-def lzw_decompress(data, file, p, static_dictionary=False):
+def lzw_decompress(data, file, p, static_dictionary=False, rc=False):
     dictionary = initialize_dictionary_decode()
-    decode(data, dictionary, file, p, static_dictionary)
+    decode(data, dictionary, file, p, static_dictionary, rc)
 
-p = 2 ** 12
+p = 2 ** 15
 
 file = sys.argv[1]
 fin = open(file, "rb")
@@ -156,7 +182,7 @@ fin.close()
 filename = f"compressed_{filename}.bin"  # Substitua "seu_arquivo.bin" pelo nome do seu arquivo binário
 
 inicio = time.time()
-lzw_compress(data=original_data, file=filename, p=p, static_dictionary=True, )
+lzw_compress(data=original_data, file=filename, p=p, static_dictionary=False, rc=False )
 fim = time.time()
 print("Tempo de Compressão: ", fim - inicio)
 print("Dados Comprimidos")
@@ -171,7 +197,7 @@ with open(filename, 'rb') as file:
     #print("Dados do arquivo comprimido: ", compressed_data)
 
 inicio = time.time()
-lzw_decompress(data=compressed_data, file="decompressed_"+original_filename, p=p, static_dictionary=True)
+lzw_decompress(data=compressed_data, file="decompressed_"+original_filename, p=p, static_dictionary=False, rc=False)
 fim = time.time()
 print("Tempo de Descompressão: ", fim - inicio)
 #print("Dados descomprimidos: ", decompressed_data)
@@ -180,6 +206,3 @@ print("Dados Descomprimidos")
 with open("decompressed_"+original_filename, 'rb') as file:
     pass
     #file.write(decompressed_data)
-
-
-
