@@ -18,7 +18,7 @@ def cal_entropia(dict_cont, n_symbol):
     
 
 def initialize_dictionary_encode():
-    return {bytes([i]): frozenbitarray(buffer=bytes([i])) for i in range(256)}
+    return {bytes([i]): frozenbitarray(int2ba(i+1)) for i in range(256)}
 
 #comprimento médio = numero de bits / simbolos codificados
 #entropia = somatorio das informações
@@ -37,7 +37,7 @@ def encode(data, dictionary, file, p, static_dictionary, rc):
     posicao_delta = 0
     dict_cont_s = {}
     bits_to_write = 64
-    b = 8
+    b = 9
     cont = 0
     buffer = b'' # ultima frase encontrada no dicionario
     result = bitarray()
@@ -76,7 +76,7 @@ def encode(data, dictionary, file, p, static_dictionary, rc):
                     cont_100_mais = True
                 
                 if tamanho_dict < p or (cont_100_mais and not flag_estatico_por_rc):
-                    dictionary[new_buffer] = frozenbitarray(int2ba(tamanho_dict))
+                    dictionary[new_buffer] = frozenbitarray(int2ba(tamanho_dict+1))
                     newTamanho = len(dictionary[new_buffer])
                     if(newTamanho > b):
                         b = newTamanho
@@ -94,7 +94,7 @@ def encode(data, dictionary, file, p, static_dictionary, rc):
                         b = 9
                         dictionary = initialize_dictionary_encode()
                         tamanho_dict = len(dictionary)
-                        dictionary[new_buffer] = frozenbitarray(int2ba(tamanho_dict))
+                        dictionary[new_buffer] = frozenbitarray(int2ba(tamanho_dict+1))
                         posicao_delta = 0
 
                     else:
@@ -106,7 +106,7 @@ def encode(data, dictionary, file, p, static_dictionary, rc):
                     b = 9
                     dictionary = initialize_dictionary_encode()
                     tamanho_dict = len(dictionary)
-                    dictionary[new_buffer] = frozenbitarray(int2ba(tamanho_dict))
+                    dictionary[new_buffer] = frozenbitarray(int2ba(tamanho_dict+1))
                     #print('Clear D', new_buffer, bytes([symbol]))
                     #dictionary[bytes([symbol])] = frozenbitarray(int2ba(tamanho_dict))
 
@@ -132,8 +132,9 @@ def encode(data, dictionary, file, p, static_dictionary, rc):
             graph_tam_symbol_y.append(tam_result / tam_input)
             #print('Simbolos: ', result)
             n_bits += len(result)
-            write_file.write(result)
             #print(result, "int: ", ba2int(dictionary[buffer]), "b:", b, "simbolo: ", buffer, "\n")
+        result = result + bitarray(b)
+        write_file.write(result)
         print ("Comprimento médio:", calc_comprimento_medio(n_bits,n_symbol))
         print ("Entropia: ", cal_entropia(dict_cont_s,n_symbol))
         # Criando o gráfico
@@ -153,11 +154,11 @@ def lzw_compress(data, file, p, static_dictionary=False, rc=False):
     #print(dictionary)
 
 def initialize_dictionary_decode():
-    return {frozenbitarray(buffer=bytes([i])): bytes([i]) for i in range(256)}
+    return {frozenbitarray(int2ba(i+1)): bytes([i]) for i in range(256)}
 
 def decode(data, dictionary, file, p, static_dictionary, rc):
     data_len = len(data)
-    b = 8
+    b = 9
     buffer = b'' # 
     result = b''
     tam_result = 0
@@ -186,22 +187,24 @@ def decode(data, dictionary, file, p, static_dictionary, rc):
             if reseta_dicionario:
                 b = 9
             symbol = strip(data[cur_index:b+cur_index], mode="left") #2
+            if(len(symbol) == 0):
+                break
             cur_index = cur_index + b
             tam_result += b
 
-            if len(symbol) < 8:
-                symbol = bitarray(8 - len(symbol)) + symbol
+            #if len(symbol) < 8:
+            #    symbol = bitarray(8 - len(symbol)) + symbol
 
             frozen_symbol = frozenbitarray(symbol)
 
             if aumenta_dicionario:
                 if buffer:
                     if frozen_symbol not in dictionary:
-                        dictionary[frozenbitarray(int2ba(dict_len))] = buffer + bytes([buffer[0]]) 
+                        dictionary[frozenbitarray(int2ba(dict_len+1))] = buffer + bytes([buffer[0]])
                     else:
-                        dictionary[frozenbitarray(int2ba(dict_len))] = buffer + bytes([dictionary[frozen_symbol][0]]) 
+                        dictionary[frozenbitarray(int2ba(dict_len+1))] = buffer + bytes([dictionary[frozen_symbol][0]]) 
 
-                if 2 ** b <= len(dictionary) and (not static_dictionary or 2 ** b < p):
+                if 2 ** b <= (len(dictionary)+1) and (not static_dictionary or len(dictionary) < p):
                     b = b + 1 #6
                 if(cont_100_mais and len(graph_tam_symbol_y) == posicao_100+100):
                         cont_100_mais = False
@@ -217,9 +220,9 @@ def decode(data, dictionary, file, p, static_dictionary, rc):
                         if buffer:
                             dict_len = len(dictionary)
                             if frozen_symbol not in dictionary:
-                                dictionary[frozenbitarray(int2ba(dict_len))] = buffer + bytes([buffer[0]]) 
+                                dictionary[frozenbitarray(int2ba(dict_len+1))] = buffer + bytes([buffer[0]]) 
                             else:
-                                dictionary[frozenbitarray(int2ba(dict_len))] = buffer + bytes([dictionary[frozen_symbol][0]]) 
+                                dictionary[frozenbitarray(int2ba(dict_len+1))] = buffer + bytes([dictionary[frozen_symbol][0]]) 
                         posicao_delta = 0
                     else:
                         posicao_delta = len(graph_tam_symbol_y) #480
@@ -230,9 +233,9 @@ def decode(data, dictionary, file, p, static_dictionary, rc):
                 if buffer:
                     dict_len = len(dictionary)
                     if frozen_symbol not in dictionary:
-                        dictionary[frozenbitarray(int2ba(dict_len))] = buffer + bytes([buffer[0]]) 
+                        dictionary[frozenbitarray(int2ba(dict_len+1))] = buffer + bytes([buffer[0]]) 
                     else:
-                        dictionary[frozenbitarray(int2ba(dict_len))] = buffer + bytes([dictionary[frozen_symbol][0]]) 
+                        dictionary[frozenbitarray(int2ba(dict_len+1))] = buffer + bytes([dictionary[frozen_symbol][0]]) 
                     
                 #dictionary[frozenbitarray(int2ba(dict_len))] = bytes([symbol_clear]) 
             #print(result, "int: ", ba2int(symbol), "b:", b, "simbolo: ", dictionary[frozenbitarray(symbol)], "\n")
