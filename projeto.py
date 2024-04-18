@@ -1,4 +1,5 @@
 import sys, os
+import tarfile
 import math
 import time
 import matplotlib.pyplot as plt
@@ -256,7 +257,6 @@ def decode(data, dictionary, file, p, static_dictionary, rc):
 
         if result:
             write_file.write(result)
-        print("tamanho: ", len(dictionary))
 
 def lzw_decompress(data, file, p, static_dictionary=False, rc=False):
     dictionary = initialize_dictionary_decode()
@@ -268,9 +268,19 @@ p = 2 ** 15
 #p = 2 ** 21
 
 file = sys.argv[1]
-fin = open(file, "rb")
+file_to_open = file
+
 filename = os.path.splitext(os.path.basename(file))[0]
 original_filename = filename + os.path.splitext(os.path.basename(file))[1]
+
+if(os.path.isdir(file)):
+    filename = os.path.basename(os.path.normpath(file))
+    original_filename = filename + ".tar"
+    file_to_open = os.path.dirname(file) + ".tar"
+    with tarfile.open(filename+".tar", 'w') as tar:
+        tar.add(filename, arcname="decompressed_"+filename)
+
+fin = open(file_to_open, "rb")
 
 original_data = fin.read()
 #print(original_data, "\n")
@@ -283,10 +293,6 @@ lzw_compress(data=original_data, file=filename, p=p, static_dictionary=False, rc
 fim = time.time()
 print("Tempo de Compressão: ", fim - inicio)
 print("Dados Comprimidos")
-with open(filename, 'rb') as output:
-    pass
-    #print(output.read())
-    #compressed_data.tofile(output)
 
 with open(filename, 'rb') as file:
     compressed_data = bitarray()
@@ -300,6 +306,6 @@ print("Tempo de Descompressão: ", fim - inicio)
 #print("Dados descomprimidos: ", decompressed_data)
 print("Dados Descomprimidos")
 
-with open("decompressed_"+original_filename, 'rb') as file:
-    pass
-    #file.write(decompressed_data)
+if(os.path.isdir(sys.argv[1])):
+    with tarfile.open("decompressed_"+original_filename, "r") as tf:
+        tf.extractall()

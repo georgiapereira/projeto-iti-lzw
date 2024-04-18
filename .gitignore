@@ -1,2 +1,6 @@
 /venv
 output.bin
+compressed_*
+decompressed_*
+*.tar
+/*
