@@ -7,6 +7,18 @@ import matplotlib.pyplot as plt
 from bitarray import bitarray, frozenbitarray
 from bitarray.util import int2ba, ba2int, strip
 
+def string_tamanho(n_bit):
+    tamanho = ""
+    if n_bit >= 8 * 1024:
+        tamanho = f"{int(n_bit) / (8 * 1024)} kB"
+    elif n_bit >= 8 * 1024 * 1024:
+        tamanho = f"{int(n_bit) / (8 * 1024 * 1024)} MB"
+    elif n_bit >= 8:
+        tamanho = f"{int(n_bit) / 8} B"
+    else:
+        tamanho= f"{int(n_bit)} b"
+    return tamanho
+
 def calc_comprimento_medio(n_bit,n_symbol):
     return n_bit/n_symbol
 
@@ -86,9 +98,9 @@ def encode(data, dictionary, file, p, static_dictionary, rc):
                         flag_estatico_por_rc = True
 
                 elif rc and (posicao_delta == 0 or posicao_delta+100 == len(graph_tam_symbol_y)): 
-                    delta_l =  graph_tam_symbol_y[len(graph_tam_symbol_y)-1] - graph_tam_symbol_y[len(graph_tam_symbol_y)-200]
+                    delta_l =  graph_tam_symbol_y[len(graph_tam_symbol_y)-1] / graph_tam_symbol_y[len(graph_tam_symbol_y)-200]
                    
-                    if(delta_l >= 1): #rc decrescente
+                    if(delta_l >= 1.1): #rc decrescente
                         print(delta_l)
                         flag_estatico_por_rc = False
                         cont_100_mais = False
@@ -136,16 +148,18 @@ def encode(data, dictionary, file, p, static_dictionary, rc):
             #print(result, "int: ", ba2int(dictionary[buffer]), "b:", b, "simbolo: ", buffer, "\n")
         result = result + bitarray(b)
         write_file.write(result)
+        
+        #print ("Tamanho: ", string_tamanho(n_bits))
         print ("Comprimento médio:", calc_comprimento_medio(n_bits,n_symbol))
         print ("Entropia: ", cal_entropia(dict_cont_s,n_symbol))
         # Criando o gráfico
-        plt.plot(graph_tam_symbol_x, graph_tam_symbol_y)
+        """ plt.plot(graph_tam_symbol_x, graph_tam_symbol_y)
         plt.xscale('log')
         # Adicionando rótulos e título
         plt.xlabel('Eixo X')
         plt.ylabel('Eixo Y')
         plt.title('Gráfico de Linha Simples')
-        plt.show()
+        plt.show() """
 
 
 def lzw_compress(data, file, p, static_dictionary=False, rc=False):
@@ -182,7 +196,7 @@ def decode(data, dictionary, file, p, static_dictionary, rc):
 
             aumenta_dicionario = dict_len < p or (cont_100_mais and not flag_estatico_por_rc)
             mede_delta_l = not aumenta_dicionario and (rc and (posicao_delta == 0 or posicao_delta+100 == len(graph_tam_symbol_y)))
-            reseta_rc = mede_delta_l and graph_tam_symbol_y[len(graph_tam_symbol_y)-1] - graph_tam_symbol_y[len(graph_tam_symbol_y)-200] > 1
+            reseta_rc = mede_delta_l and graph_tam_symbol_y[len(graph_tam_symbol_y)-1] / graph_tam_symbol_y[len(graph_tam_symbol_y)-200] >= 1.1
             reseta_dicionario = not static_dictionary and dict_len >=p and (not rc or reseta_rc)
 
             if reseta_dicionario:
@@ -211,9 +225,9 @@ def decode(data, dictionary, file, p, static_dictionary, rc):
                         cont_100_mais = False
                         flag_estatico_por_rc = True
             elif mede_delta_l: 
-                    delta_l = graph_tam_symbol_y[len(graph_tam_symbol_y)-1] - graph_tam_symbol_y[len(graph_tam_symbol_y)-200]
+                    delta_l = graph_tam_symbol_y[len(graph_tam_symbol_y)-1] / graph_tam_symbol_y[len(graph_tam_symbol_y)-200]
 
-                    if(delta_l > 1): #rc decrescente
+                    if(delta_l >= 1.1): #rc decrescente
                         print(delta_l)
                         flag_estatico_por_rc = False
                         cont_100_mais = False
@@ -262,8 +276,11 @@ def lzw_decompress(data, file, p, static_dictionary=False, rc=False):
     dictionary = initialize_dictionary_decode()
     decode(data, dictionary, file, p, static_dictionary, rc)
 
-#p = 2 ** 12
-p = 2 ** 15
+estatico = True
+rc = False
+
+p = 2 ** 12
+#p = 2 ** 15
 #p = 2 ** 18
 #p = 2 ** 21
 
@@ -289,7 +306,7 @@ fin.close()
 filename = f"compressed_{filename}.bin"  # Substitua "seu_arquivo.bin" pelo nome do seu arquivo binário
 
 inicio = time.time()
-lzw_compress(data=original_data, file=filename, p=p, static_dictionary=False, rc=True )
+lzw_compress(data=original_data, file=filename, p=p, static_dictionary=estatico, rc=rc )
 fim = time.time()
 print("Tempo de Compressão: ", fim - inicio)
 print("Dados Comprimidos")
@@ -300,7 +317,7 @@ with open(filename, 'rb') as file:
     #print("Dados do arquivo comprimido: ", compressed_data)
 
 inicio = time.time()
-lzw_decompress(data=compressed_data, file="decompressed_"+original_filename, p=p, static_dictionary=False, rc=True)
+lzw_decompress(data=compressed_data, file="decompressed_"+original_filename, p=p, static_dictionary=estatico, rc=rc)
 fim = time.time()
 print("Tempo de Descompressão: ", fim - inicio)
 #print("Dados descomprimidos: ", decompressed_data)
