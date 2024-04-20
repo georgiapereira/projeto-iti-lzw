@@ -7,18 +7,6 @@ import matplotlib.pyplot as plt
 from bitarray import bitarray, frozenbitarray
 from bitarray.util import int2ba, ba2int, strip
 
-def string_tamanho(n_bit):
-    tamanho = ""
-    if n_bit >= 8 * 1024:
-        tamanho = f"{int(n_bit) / (8 * 1024)} kB"
-    elif n_bit >= 8 * 1024 * 1024:
-        tamanho = f"{int(n_bit) / (8 * 1024 * 1024)} MB"
-    elif n_bit >= 8:
-        tamanho = f"{int(n_bit) / 8} B"
-    else:
-        tamanho= f"{int(n_bit)} b"
-    return tamanho
-
 def calc_comprimento_medio(n_bit,n_symbol):
     return n_bit/n_symbol
 
@@ -38,6 +26,7 @@ def initialize_dictionary_encode():
 #informação = log 1/p
 #tempo de compressão e descompressão
 def encode(data, dictionary, file, p, static_dictionary, rc):
+    rc_delta_reset = 1.01
     n_symbol = 0
     n_bits = 0
     tam_result = 0
@@ -99,9 +88,10 @@ def encode(data, dictionary, file, p, static_dictionary, rc):
 
                 elif rc and (posicao_delta == 0 or posicao_delta+100 == len(graph_tam_symbol_y)): 
                     delta_l =  graph_tam_symbol_y[len(graph_tam_symbol_y)-1] / graph_tam_symbol_y[len(graph_tam_symbol_y)-200]
-                   
-                    if(delta_l >= 1.1): #rc decrescente
-                        print(delta_l)
+                    #print(delta_l)
+                    
+                    if(delta_l >= rc_delta_reset): #rc decrescente
+                        max_delta_l = 1
                         flag_estatico_por_rc = False
                         cont_100_mais = False
                         b = 9
@@ -148,18 +138,19 @@ def encode(data, dictionary, file, p, static_dictionary, rc):
             #print(result, "int: ", ba2int(dictionary[buffer]), "b:", b, "simbolo: ", buffer, "\n")
         result = result + bitarray(b)
         write_file.write(result)
+
+        print("max:", max_delta_l)
         
-        #print ("Tamanho: ", string_tamanho(n_bits))
         print ("Comprimento médio:", calc_comprimento_medio(n_bits,n_symbol))
         print ("Entropia: ", cal_entropia(dict_cont_s,n_symbol))
         # Criando o gráfico
-        """ plt.plot(graph_tam_symbol_x, graph_tam_symbol_y)
+        plt.plot(graph_tam_symbol_x, graph_tam_symbol_y)
         plt.xscale('log')
         # Adicionando rótulos e título
         plt.xlabel('Eixo X')
         plt.ylabel('Eixo Y')
         plt.title('Gráfico de Linha Simples')
-        plt.show() """
+        plt.show()
 
 
 def lzw_compress(data, file, p, static_dictionary=False, rc=False):
@@ -172,6 +163,7 @@ def initialize_dictionary_decode():
     return {frozenbitarray(int2ba(i+1)): bytes([i]) for i in range(256)}
 
 def decode(data, dictionary, file, p, static_dictionary, rc):
+    rc_delta_reset = 1.01
     data_len = len(data)
     b = 9
     buffer = b'' # 
@@ -196,7 +188,7 @@ def decode(data, dictionary, file, p, static_dictionary, rc):
 
             aumenta_dicionario = dict_len < p or (cont_100_mais and not flag_estatico_por_rc)
             mede_delta_l = not aumenta_dicionario and (rc and (posicao_delta == 0 or posicao_delta+100 == len(graph_tam_symbol_y)))
-            reseta_rc = mede_delta_l and graph_tam_symbol_y[len(graph_tam_symbol_y)-1] / graph_tam_symbol_y[len(graph_tam_symbol_y)-200] >= 1.1
+            reseta_rc = mede_delta_l and graph_tam_symbol_y[len(graph_tam_symbol_y)-1] / graph_tam_symbol_y[len(graph_tam_symbol_y)-200] >= rc_delta_reset
             reseta_dicionario = not static_dictionary and dict_len >=p and (not rc or reseta_rc)
 
             if reseta_dicionario:
@@ -226,9 +218,7 @@ def decode(data, dictionary, file, p, static_dictionary, rc):
                         flag_estatico_por_rc = True
             elif mede_delta_l: 
                     delta_l = graph_tam_symbol_y[len(graph_tam_symbol_y)-1] / graph_tam_symbol_y[len(graph_tam_symbol_y)-200]
-
-                    if(delta_l >= 1.1): #rc decrescente
-                        print(delta_l)
+                    if(delta_l >= rc_delta_reset): #rc decrescente
                         flag_estatico_por_rc = False
                         cont_100_mais = False
                         dictionary = initialize_dictionary_decode()
@@ -276,8 +266,8 @@ def lzw_decompress(data, file, p, static_dictionary=False, rc=False):
     dictionary = initialize_dictionary_decode()
     decode(data, dictionary, file, p, static_dictionary, rc)
 
-estatico = True
-rc = False
+estatico = False
+rc = True
 
 p = 2 ** 12
 #p = 2 ** 15
